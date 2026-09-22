@@ -1,0 +1,40 @@
+# Quartus generated databases and build outputs
+/db/
+/incremental_db/
+/output_files/
+*.qws
+*.bak
+*.done
+*.rpt
+*.summary
+*.map
+*.fit
+*.sta
+*.flow
+*.pin
+*.smsg
+*.qmsg
+*.jdi
+*.pof
+*.sof
+*.rbf
+
+# Simulation and tool working files
+/work/
+/transcript
+/wave.vcd
+/*.wlf
+/simulation/questa/
+/simulation/modelsim/
+
+# Generated firmware artifacts
+/software/firmware.elf
+/software/firmware.bin
+/software/imem.mif
+
+# Local editor and OS files
+.vscode/
+.idea/
+*.swp
+.DS_Store
+Thumbs.db
