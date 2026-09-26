@@ -106,10 +106,16 @@ module game_video (
     endfunction
 
     // ------------------------------------------------------------------
-    // Player ("Arwing") geometry - sized up slightly ("zoom in") vs before
+    // Player ("Arwing") geometry - a fixed rear/underside view, like the
+    // reference: nose pointing away into the screen, wings splayed wide
+    // and swept back. No movement-based tricks - just a static shape +
+    // shading, same every frame.
     // ------------------------------------------------------------------
-    reg [9:0] ship_dx;
-    reg [9:0] wing_width;
+    reg  [9:0] ship_dx;
+    reg  [9:0] wing_width;
+    reg  [9:0] wing_half;      // wing_width / 2, splits the wing into an
+                                // inner (near body) and outer (swept-back
+                                // tip) shading zone
     reg       ship_nose;
     reg       ship_body;
     reg       ship_wings;
@@ -200,7 +206,9 @@ module game_video (
                    (pixel_y < 10'd141) || (pixel_y >= 10'd319));
 
         // -------------------------------------------------------------
-        // 2. Player ship (Arwing), driven by player_x/player_y directly
+        // 2. Player ship (Arwing), driven by player_x/player_y directly.
+        //    Fixed rear/underside perspective - nose away into the
+        //    screen, wings splayed wide, shaded so they look swept back.
         // -------------------------------------------------------------
         ship_dx = (pixel_x >= player_x) ? (pixel_x - player_x) : (player_x - pixel_x);
 
@@ -211,6 +219,8 @@ module game_video (
                 (ship_dx <= 10'd9);
 
         wing_width = ((pixel_y - (player_y - 10'd9)) * 10'd4) >> 1;
+        wing_half  = wing_width >> 1;
+
         ship_wings = (pixel_y >= player_y - 10'd9) && (pixel_y < player_y + 10'd17) &&
                  (ship_dx <= wing_width);
 
@@ -276,7 +286,14 @@ module game_video (
             end else if ((pixel_y >= player_y - 10'd2) && (ship_dx >= wing_width - 10'd3)) begin
                 red = 4'hF; green = 4'h1; blue = 4'h2;               // red laser cannons
             end else if (ship_wings && (ship_dx > 10'd9)) begin
-                red = 4'h1; green = 4'h5; blue = 4'hE;               // metallic blue wings
+                // Fixed two-tone shading, same every frame: bright near
+                // the body, darker toward the tip - reads as the wing
+                // sweeping back away from camera, like the reference.
+                if (ship_dx <= wing_half) begin
+                    red = 4'h2; green = 4'h6; blue = 4'hE;           // inner wing - lighter
+                end else begin
+                    red = 4'h0; green = 4'h2; blue = 4'h8;           // outer wing/tip - darker
+                end
             end else if (ship_thruster) begin
                 red = 4'h0; green = 4'hC; blue = 4'hF;                 // steady plasma
             end else begin
