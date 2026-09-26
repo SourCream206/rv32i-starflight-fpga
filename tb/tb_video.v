@@ -9,6 +9,7 @@ module tb_video;
     wire hsync;
     wire vsync;
     wire frame_tick;
+    wire [7:0] frame_count;
     reg [3:0] red;
     reg [3:0] green;
     reg [3:0] blue;
@@ -24,13 +25,15 @@ module tb_video;
         .active_video(active_video),
         .hsync(hsync),
         .vsync(vsync),
-        .frame_tick(frame_tick)
+        .frame_tick(frame_tick),
+        .frame_count(frame_count)
     );
 
     game_video renderer (
         .pixel_x(pixel_x),
         .pixel_y(pixel_y),
         .active_video(active_video),
+        .frame_count(frame_count),
         .player_x(10'd320),
         .asteroid_x(10'd320),
         .asteroid_y(10'd180),

@@ -32,6 +32,7 @@ module riscv_soc (
     wire [15:0] tilt_x;
     wire illegal_instruction;
     wire [9:0] pixel_x, pixel_y;
+    wire [7:0] frame_count;
     wire active_video, frame_tick;
     wire [3:0] video_red, video_green, video_blue;
     reg [9:0] live_player_x;
@@ -127,13 +128,15 @@ module riscv_soc (
         .active_video(active_video),
         .hsync(VGA_HS),
         .vsync(VGA_VS),
-        .frame_tick(frame_tick)
+        .frame_tick(frame_tick),
+        .frame_count(frame_count)
     );
 
     game_video video_renderer (
         .pixel_x(pixel_x),
         .pixel_y(pixel_y),
         .active_video(active_video),
+        .frame_count(frame_count),
         .player_x(live_player_x),
         .asteroid_x(live_asteroid_x),
         .asteroid_y(live_asteroid_y),

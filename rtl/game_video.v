@@ -2,6 +2,7 @@ module game_video (
     input  wire [9:0] pixel_x,
     input  wire [9:0] pixel_y,
     input  wire       active_video,
+    input  wire [7:0] frame_count,
     input  wire [9:0] player_x,
     input  wire [9:0] asteroid_x,
     input  wire [9:0] asteroid_y,
@@ -18,6 +19,13 @@ module game_video (
     reg [9:0] dx;
     reg [9:0] dy;
     reg [9:0] tunnel_radius;
+    reg [9:0] animated_radius;
+    reg [9:0] ship_center;
+    reg [9:0] ship_width;
+    reg [9:0] ship_height;
+    reg [9:0] asteroid_center_x;
+    reg [9:0] asteroid_center_y;
+    reg [9:0] asteroid_distance;
     reg tunnel_ring;
     reg tunnel_spoke;
     reg ship_pixel;
@@ -33,31 +41,42 @@ module game_video (
                 dx = (pixel_x >= 10'd320) ? pixel_x - 10'd320 : 10'd320 - pixel_x;
                 dy = (pixel_y >= 10'd240) ? pixel_y - 10'd240 : 10'd240 - pixel_y;
                 tunnel_radius = (dx > dy) ? dx : dy;
-                tunnel_ring = (tunnel_radius[4:0] <= 2) && (tunnel_radius > 10'd20);
-                tunnel_spoke = ((pixel_x >= (10'd320 - (pixel_y >> 3))) &&
-                                                (pixel_x < (10'd323 - (pixel_y >> 3)))) ||
-                                             ((pixel_x >= (10'd317 + (pixel_y >> 3))) &&
-                                                (pixel_x < (10'd320 + (pixel_y >> 3))));
+                animated_radius = 10'd24 + {2'b0, frame_count};
+                tunnel_ring = (tunnel_radius >= animated_radius) &&
+                                            (tunnel_radius < animated_radius + 10'd3) &&
+                                            (animated_radius < 10'd300);
+                tunnel_spoke = ((pixel_x >= (10'd320 - (pixel_y >> 2))) &&
+                                                (pixel_x < (10'd323 - (pixel_y >> 2)))) ||
+                                             ((pixel_x >= (10'd317 + (pixel_y >> 2))) &&
+                                                (pixel_x < (10'd320 + (pixel_y >> 2)))) ||
+                                             ((pixel_y >= (10'd240 - (pixel_x >> 3))) &&
+                                                (pixel_y < (10'd243 - (pixel_x >> 3)))) ||
+                                             ((pixel_y >= (10'd237 + (pixel_x >> 3))) &&
+                                                (pixel_y < (10'd240 + (pixel_x >> 3))));
 
-                ship_pixel = ((pixel_y >= 10'd438) && (pixel_y < 10'd442) &&
-                                            (pixel_x >= player_x - 10'd28) &&
-                                            (pixel_x < player_x + 10'd29)) ||
-                                         ((pixel_x >= player_x - 10'd3) &&
-                                            (pixel_x < player_x + 10'd3) &&
-                                            (pixel_y >= 10'd420) && (pixel_y < 10'd455));
+                ship_center = player_x;
+                ship_width = 10'd34;
+                ship_height = 10'd42;
+                ship_pixel = ((pixel_y >= 10'd430) && (pixel_y < 10'd434) &&
+                                            (pixel_x >= ship_center - ship_width) &&
+                                            (pixel_x < ship_center + ship_width)) ||
+                                         ((pixel_y >= 10'd434) && (pixel_y < 10'd455) &&
+                                            (pixel_x >= ship_center - ((pixel_y - 10'd430) << 1)) &&
+                                            (pixel_x < ship_center + ((pixel_y - 10'd430) << 1))) ||
+                                         ((pixel_x >= ship_center - 10'd4) &&
+                                            (pixel_x < ship_center + 10'd4) &&
+                                            (pixel_y >= 10'd410) && (pixel_y < 10'd430));
 
-                asteroid_pixel = ((((pixel_x >= asteroid_left) &&
-                                                        (pixel_x < asteroid_left + 10'd3)) ||
-                                                     ((pixel_x >= asteroid_right - 10'd3) &&
-                                                        (pixel_x < asteroid_right))) &&
-                                                    (pixel_y >= asteroid_top) &&
-                                                    (pixel_y < asteroid_bottom)) ||
-                                                 ((((pixel_y >= asteroid_top) &&
-                                                        (pixel_y < asteroid_top + 10'd3)) ||
-                                                     ((pixel_y >= asteroid_bottom - 10'd3) &&
-                                                        (pixel_y < asteroid_bottom))) &&
-                                                    (pixel_x >= asteroid_left) &&
-                                                    (pixel_x < asteroid_right));
+                asteroid_center_x = asteroid_x;
+                asteroid_center_y = asteroid_y;
+                asteroid_distance = ((pixel_x >= asteroid_center_x) ?
+                                                         pixel_x - asteroid_center_x : asteroid_center_x - pixel_x) +
+                                                        ((pixel_y >= asteroid_center_y) ?
+                                                         pixel_y - asteroid_center_y : asteroid_center_y - pixel_y);
+                asteroid_pixel = (asteroid_distance >= asteroid_size - 10'd3) &&
+                                                 (asteroid_distance <= asteroid_size) &&
+                                                 (pixel_x >= asteroid_left) && (pixel_x < asteroid_right) &&
+                                                 (pixel_y >= asteroid_top) && (pixel_y < asteroid_bottom);
 
         red = 4'h0;
         green = 4'h0;

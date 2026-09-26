@@ -6,7 +6,8 @@ module vga_timing (
     output wire       active_video,
     output wire       hsync,
     output wire       vsync,
-    output wire       frame_tick
+    output wire       frame_tick,
+    output reg  [7:0] frame_count
 );
     localparam H_VISIBLE = 10'd640;
     localparam H_FRONT   = 10'd16;
@@ -33,13 +34,17 @@ module vga_timing (
             pixel_phase <= 1'b0;
             pixel_x <= 10'd0;
             pixel_y <= 10'd0;
+            frame_count <= 8'd0;
         end else begin
             pixel_phase <= ~pixel_phase;
             if (pixel_phase) begin
                 if (pixel_x == H_TOTAL - 1'b1) begin
                     pixel_x <= 10'd0;
                     if (pixel_y == V_TOTAL - 1'b1)
-                        pixel_y <= 10'd0;
+                        begin
+                            pixel_y <= 10'd0;
+                            frame_count <= frame_count + 1'b1;
+                        end
                     else
                         pixel_y <= pixel_y + 1'b1;
                 end else begin
