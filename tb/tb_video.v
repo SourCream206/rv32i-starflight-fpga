@@ -35,9 +35,11 @@ module tb_video;
         .active_video(active_video),
         .frame_count(frame_count),
         .player_x(10'd320),
+        .player_y(10'd360),
         .asteroid_x(10'd320),
         .asteroid_y(10'd180),
         .asteroid_depth(8'd220),
+        .game_over(1'b0),
         .red(rendered_red),
         .green(rendered_green),
         .blue(rendered_blue)
@@ -58,7 +60,7 @@ module tb_video;
         @(posedge frame_tick);
 
         force timing.pixel_x = 10'd320;
-        force timing.pixel_y = 10'd440;
+        force timing.pixel_y = 10'd360;
         #1;
         if (rendered_green == 4'd0)
             $fatal(1, "Player was not rendered");

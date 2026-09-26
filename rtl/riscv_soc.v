@@ -36,10 +36,14 @@ module riscv_soc (
     wire active_video, frame_tick;
     wire [3:0] video_red, video_green, video_blue;
     reg [9:0] live_player_x;
+    reg [9:0] live_player_y;
     reg [9:0] live_asteroid_x;
     reg [9:0] live_asteroid_y;
     reg [7:0] live_asteroid_depth;
     reg [9:0] asteroid_lfsr;
+    reg [9:0] game_score;
+    reg game_over;
+    reg button_prev;
     reg  [9:0]  led_reg;
     reg  [9:0]  player_x_reg;
     reg  [9:0]  asteroid_x_reg;
@@ -90,42 +94,73 @@ module riscv_soc (
         end
     end
 
-    assign LEDR = led_reg;
+    assign LEDR = game_score;
 
     always @(*) begin
         if ($signed(tilt_x) < -16'sd960)
-            live_player_x = 10'd80;
+            live_player_x = 10'd160;
         else if ($signed(tilt_x) > 16'sd960)
-            live_player_x = 10'd560;
+            live_player_x = 10'd480;
         else
-            live_player_x = 10'd320 + ($signed(tilt_x) >>> 2);
+            live_player_x = 10'd320 + ($signed(tilt_x) >>> 3);
+        live_player_y = 10'd360;
     end
 
     always @(posedge clk) begin
         if (cpu_rst) begin
+            live_player_y <= 10'd360;
             live_asteroid_x <= 10'd320;
             live_asteroid_y <= 10'd220;
             live_asteroid_depth <= 8'd240;
             asteroid_lfsr <= 10'b1011010111;
+            game_score <= 10'd0;
+            game_over <= 1'b0;
+            button_prev <= 1'b0;
         end else if (frame_tick) begin
             asteroid_lfsr <= {asteroid_lfsr[8:0],
                               asteroid_lfsr[9] ^ asteroid_lfsr[6]};
-            if (live_asteroid_depth > 8'd8)
+            button_prev <= ~BTN1;
+            if (game_over) begin
+                if ((~BTN1) && !button_prev) begin
+                    game_over <= 1'b0;
+                    game_score <= 10'd0;
+                    live_asteroid_depth <= 8'd240;
+                    live_asteroid_x <= 10'd160 + {1'b0, asteroid_lfsr[8:0]};
+                    live_asteroid_y <= 10'd150 + {2'b0, asteroid_lfsr[7:0]};
+                end
+            end else if (live_asteroid_depth > 8'd8) begin
                 live_asteroid_depth <= live_asteroid_depth - 8'd2;
-            else begin
+                if ((~BTN1) && !button_prev &&
+                    (live_asteroid_depth < 8'd90) &&
+                    (live_asteroid_x > live_player_x - 10'd55) &&
+                    (live_asteroid_x < live_player_x + 10'd55) &&
+                    (live_asteroid_y > live_player_y - 10'd55) &&
+                    (live_asteroid_y < live_player_y + 10'd55)) begin
+                    game_score <= game_score + 10'd1;
+                    live_asteroid_depth <= 8'd240;
+                    live_asteroid_x <= 10'd160 + {1'b0, asteroid_lfsr[8:0]};
+                    live_asteroid_y <= 10'd150 + {2'b0, asteroid_lfsr[7:0]};
+                end
+            end else if ((live_asteroid_x > live_player_x - 10'd65) &&
+                         (live_asteroid_x < live_player_x + 10'd65) &&
+                         (live_asteroid_y > live_player_y - 10'd65) &&
+                         (live_asteroid_y < live_player_y + 10'd65)) begin
+                game_over <= 1'b1;
+            end else begin
+                game_score <= game_score + 10'd1;
                 live_asteroid_depth <= 8'd240;
-                live_asteroid_x <= 10'd80 + {1'b0, asteroid_lfsr[8:0]};
-                live_asteroid_y <= 10'd120 + {2'b0, asteroid_lfsr[7:0]};
+                live_asteroid_x <= 10'd160 + {1'b0, asteroid_lfsr[8:0]};
+                live_asteroid_y <= 10'd150 + {2'b0, asteroid_lfsr[7:0]};
             end
         end
     end
 
-    hex_decoder h0 (.in(hex_display_reg[3:0]),   .out(HEX0));
-    hex_decoder h1 (.in(hex_display_reg[7:4]),   .out(HEX1));
-    hex_decoder h2 (.in(hex_display_reg[11:8]),  .out(HEX2));
-    hex_decoder h3 (.in(hex_display_reg[15:12]), .out(HEX3));
-    hex_decoder h4 (.in(hex_display_reg[19:16]), .out(HEX4));
-    hex_decoder h5 (.in(hex_display_reg[23:20]), .out(HEX5));
+    hex_decoder h0 (.in(game_score[3:0]), .out(HEX0));
+    hex_decoder h1 (.in(game_score[7:4]), .out(HEX1));
+    hex_decoder h2 (.in({2'b0, game_score[9:8]}), .out(HEX2));
+    hex_decoder h3 (.in(4'h0), .out(HEX3));
+    hex_decoder h4 (.in(4'h0), .out(HEX4));
+    hex_decoder h5 (.in(4'h0), .out(HEX5));
 
     vga_timing video_timing (
         .clk(clk),
@@ -145,9 +180,11 @@ module riscv_soc (
         .active_video(active_video),
         .frame_count(frame_count),
         .player_x(live_player_x),
+        .player_y(live_player_y),
         .asteroid_x(live_asteroid_x),
         .asteroid_y(live_asteroid_y),
         .asteroid_depth(live_asteroid_depth),
+        .game_over(game_over),
         .red(video_red),
         .green(video_green),
         .blue(video_blue)

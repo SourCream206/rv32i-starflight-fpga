@@ -4,9 +4,11 @@ module game_video (
     input  wire       active_video,
     input  wire [7:0] frame_count,
     input  wire [9:0] player_x,
+    input  wire [9:0] player_y,
     input  wire [9:0] asteroid_x,
     input  wire [9:0] asteroid_y,
     input  wire [7:0] asteroid_depth,
+    input  wire       game_over,
     output reg  [3:0] red,
     output reg  [3:0] green,
     output reg  [3:0] blue
@@ -64,18 +66,21 @@ module game_video (
         ship_dx = (pixel_x >= player_x) ? (pixel_x - player_x) : (player_x - pixel_x);
 
         // Tapered nose cone
-        ship_nose = (pixel_y >= 10'd410) && (pixel_y < 10'd430) &&
-                    (ship_dx <= (((pixel_y - 10'd410) >> 1) + 10'd1));
+        ship_nose = (pixel_y >= player_y - 10'd30) && (pixel_y < player_y - 10'd10) &&
+                (ship_dx <= (((pixel_y - (player_y - 10'd30)) >> 1) + 10'd1));
 
         // Central fuselage
-        ship_body = (pixel_y >= 10'd430) && (pixel_y < 10'd452) && (ship_dx <= 10'd8);
+        ship_body = (pixel_y >= player_y - 10'd10) && (pixel_y < player_y + 10'd12) &&
+                (ship_dx <= 10'd8);
 
         // Swept-back wings
-        wing_width = ((pixel_y - 10'd430) * 10'd3) >> 1;
-        ship_wings = (pixel_y >= 10'd432) && (pixel_y < 10'd455) && (ship_dx <= wing_width);
+        wing_width = ((pixel_y - (player_y - 10'd8)) * 10'd3) >> 1;
+        ship_wings = (pixel_y >= player_y - 10'd8) && (pixel_y < player_y + 10'd15) &&
+                 (ship_dx <= wing_width);
 
         // Animated engine thruster flame
-        ship_thruster = (pixel_y >= 10'd452) && (pixel_y < 10'd464) && (ship_dx <= 10'd5);
+        ship_thruster = (pixel_y >= player_y + 10'd12) && (pixel_y < player_y + 10'd24) &&
+                (ship_dx <= 10'd5);
 
         ship_pixel = ship_nose || ship_body || ship_wings || ship_thruster;
 
@@ -97,6 +102,10 @@ module game_video (
             red   = 4'h0;
             green = 4'h0;
             blue  = 4'h0;
+        end else if (game_over) begin
+            red   = ((pixel_x[5] ^ pixel_y[5]) == frame_count[0]) ? 4'hF : 4'h0;
+            green = red;
+            blue  = red;
         end else if (ship_pixel) begin
             // Player Arwing Shading
             if ((pixel_y >= 10'd420) && (pixel_y < 10'd432) && (ship_dx <= 10'd3)) begin
