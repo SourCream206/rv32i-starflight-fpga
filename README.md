@@ -6,9 +6,7 @@ The active Quartus top-level entity is `riscv_soc`.
 
 ## Demo
 
-<video src="./demo.mp4" controls width="800"></video>
-
-[Open or download the demo video](demo.mp4)
+![Project demo](demo.gif)
 
 ## Project Scope
 
