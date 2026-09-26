@@ -33,6 +33,48 @@ $env:RISCV = 'C:\path\to\riscv-toolchain'
 
 The script generates `software/firmware.elf` and `software/imem.hex`. Generated firmware files are ignored by Git.
 
+## Build and Test
+
+### CPU and VGA simulation
+
+From the project root, with Questa on the standard Intel installation path:
+
+```powershell
+& 'C:\altera_lite\25.1std\questa_fse\win64\vlog.exe' -work work rtl/alu.v rtl/pc.v rtl/reg_file.v rtl/decoder.v rtl/lsu.v rtl/riscVCPU.v tb/tb_cpu.v
+& 'C:\altera_lite\25.1std\questa_fse\win64\vsim.exe' -c tb_cpu -do 'run -all; quit -f'
+& 'C:\altera_lite\25.1std\questa_fse\win64\vlog.exe' -work work rtl/vga_timing.v rtl/game_video.v tb/tb_video.v
+& 'C:\altera_lite\25.1std\questa_fse\win64\vsim.exe' -c tb_video -do 'run -all; quit -f'
+```
+
+Both tests should print `PASS`.
+
+### Build the C game firmware
+
+The current CPU requires a bare-metal RV32I toolchain. The default RISC-V toolchain target is often RV64GC, so use explicit RV32I flags through `build.ps1`:
+
+```powershell
+$env:RISCV = 'C:\path\to\riscv-toolchain'
+.\software\build.ps1
+```
+
+This must update `software/imem.hex`. If `imem.hex` still contains only nine words, the FPGA will run the old accelerometer display demo rather than the C game.
+
+### Build in Quartus
+
+Open `riscVCPU.qpf` in Quartus Prime, or run:
+
+```powershell
+.\scripts\build_fpga.ps1
+```
+
+The script runs the complete Quartus flow and should create `output_files\riscVCPU.sof`.
+
+Program that `.sof` with Quartus Programmer using the DE10-Lite USB-Blaster. Connect VGA before powering the board. Release reset, then verify the static scene before testing accelerometer movement and the button input.
+
+### Current test status
+
+The CPU and VGA simulations pass. The checked-in `.sof` contains the VGA renderer and static scene, but the C game is not present until the firmware toolchain is installed and `software/build.ps1` is run. Timing should also be reviewed in `output_files\riscVCPU.sta.rpt` before relying on high-speed CPU execution.
+
 ## Verification
 
 The CPU regression and VGA renderer tests are run with Questa. Quartus analysis and fitting are used for the DE10-Lite top-level integration.
