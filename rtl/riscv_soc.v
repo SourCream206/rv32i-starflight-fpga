@@ -39,6 +39,7 @@ module riscv_soc (
     reg [9:0] live_asteroid_x;
     reg [9:0] live_asteroid_y;
     reg [7:0] live_asteroid_depth;
+    reg [9:0] asteroid_lfsr;
     reg  [9:0]  led_reg;
     reg  [9:0]  player_x_reg;
     reg  [9:0]  asteroid_x_reg;
@@ -105,11 +106,17 @@ module riscv_soc (
             live_asteroid_x <= 10'd320;
             live_asteroid_y <= 10'd220;
             live_asteroid_depth <= 8'd240;
+            asteroid_lfsr <= 10'b1011010111;
         end else if (frame_tick) begin
+            asteroid_lfsr <= {asteroid_lfsr[8:0],
+                              asteroid_lfsr[9] ^ asteroid_lfsr[6]};
             if (live_asteroid_depth > 8'd8)
                 live_asteroid_depth <= live_asteroid_depth - 8'd2;
-            else
+            else begin
                 live_asteroid_depth <= 8'd240;
+                live_asteroid_x <= 10'd80 + {1'b0, asteroid_lfsr[8:0]};
+                live_asteroid_y <= 10'd120 + {2'b0, asteroid_lfsr[7:0]};
+            end
         end
     end
 

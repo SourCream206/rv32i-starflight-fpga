@@ -11,83 +11,164 @@ module game_video (
     output reg  [3:0] green,
     output reg  [3:0] blue
 );
-    reg [9:0] asteroid_size;
-    reg [9:0] asteroid_left;
-    reg [9:0] asteroid_right;
-    reg [9:0] asteroid_top;
-    reg [9:0] asteroid_bottom;
+
+    // Perspective tunnel & background signals
     reg [9:0] dx;
     reg [9:0] dy;
-    reg [9:0] tunnel_radius;
-    reg [9:0] animated_radius;
-    reg [9:0] ship_center;
-    reg [9:0] ship_width;
-    reg [9:0] ship_height;
-    reg [9:0] asteroid_center_x;
-    reg [9:0] asteroid_center_y;
-    reg [9:0] asteroid_distance;
-    reg tunnel_ring;
-    reg tunnel_spoke;
-    reg ship_pixel;
-    reg asteroid_pixel;
+    reg [9:0] r_oct;
+    reg [9:0] ring_phase;
+    reg       tunnel_ring;
+    reg       spoke_diag;
+    reg       star_pixel;
+
+    // Player (Arwing) geometry signals
+    reg [9:0] ship_dx;
+    reg [9:0] wing_width;
+    reg       ship_nose;
+    reg       ship_body;
+    reg       ship_wings;
+    reg       ship_thruster;
+    reg       ship_pixel;
+
+    // Asteroid geometry signals
+    reg [9:0] ast_dx;
+    reg [9:0] ast_dy;
+    reg [9:0] ast_size;
+    reg [9:0] ast_dist;
+    reg       asteroid_pixel;
 
     always @(*) begin
-        asteroid_size = 10'd8 + ((8'd255 - asteroid_depth) >> 2);
-        asteroid_left = (asteroid_x > asteroid_size) ? asteroid_x - asteroid_size : 10'd0;
-        asteroid_right = asteroid_x + asteroid_size;
-        asteroid_top = (asteroid_y > asteroid_size) ? asteroid_y - asteroid_size : 10'd0;
-        asteroid_bottom = asteroid_y + asteroid_size;
+        // -------------------------------------------------------------
+        // 1. Perspective Tunnel & Starfield
+        // -------------------------------------------------------------
+        dx = (pixel_x >= 10'd320) ? (pixel_x - 10'd320) : (10'd320 - pixel_x);
+        dy = (pixel_y >= 10'd240) ? (pixel_y - 10'd240) : (10'd240 - pixel_y);
 
-                dx = (pixel_x >= 10'd320) ? pixel_x - 10'd320 : 10'd320 - pixel_x;
-                dy = (pixel_y >= 10'd240) ? pixel_y - 10'd240 : 10'd240 - pixel_y;
-                tunnel_radius = (dx > dy) ? dx : dy;
-                animated_radius = 10'd24 + {2'b0, frame_count};
-                tunnel_ring = (tunnel_radius >= animated_radius) &&
-                                            (tunnel_radius < animated_radius + 10'd3) &&
-                                            (animated_radius < 10'd300);
-                tunnel_spoke = ((pixel_x >= (10'd320 - (pixel_y >> 2))) &&
-                                                (pixel_x < (10'd323 - (pixel_y >> 2)))) ||
-                                             ((pixel_x >= (10'd317 + (pixel_y >> 2))) &&
-                                                (pixel_x < (10'd320 + (pixel_y >> 2)))) ||
-                                             ((pixel_y >= (10'd240 - (pixel_x >> 3))) &&
-                                                (pixel_y < (10'd243 - (pixel_x >> 3)))) ||
-                                             ((pixel_y >= (10'd237 + (pixel_x >> 3))) &&
-                                                (pixel_y < (10'd240 + (pixel_x >> 3))));
+        // Octagonal distance approximation for perspective corridor
+        r_oct = (dx > dy) ? (dx + (dy >> 1)) : (dy + (dx >> 1));
 
-                ship_center = player_x;
-                ship_width = 10'd34;
-                ship_height = 10'd42;
-                ship_pixel = ((pixel_y >= 10'd430) && (pixel_y < 10'd434) &&
-                                            (pixel_x >= ship_center - ship_width) &&
-                                            (pixel_x < ship_center + ship_width)) ||
-                                         ((pixel_y >= 10'd434) && (pixel_y < 10'd455) &&
-                                            (pixel_x >= ship_center - ((pixel_y - 10'd430) << 1)) &&
-                                            (pixel_x < ship_center + ((pixel_y - 10'd430) << 1))) ||
-                                         ((pixel_x >= ship_center - 10'd4) &&
-                                            (pixel_x < ship_center + 10'd4) &&
-                                            (pixel_y >= 10'd410) && (pixel_y < 10'd430));
+        // Animated concentric tunnel rings expanding outward
+        ring_phase = (r_oct - {2'b0, frame_count[5:0], 2'b0}) & 10'h03F;
+        tunnel_ring = (ring_phase < 10'd3) && (r_oct > 10'd20) && (r_oct < 10'd310);
 
-                asteroid_center_x = asteroid_x;
-                asteroid_center_y = asteroid_y;
-                asteroid_distance = ((pixel_x >= asteroid_center_x) ?
-                                                         pixel_x - asteroid_center_x : asteroid_center_x - pixel_x) +
-                                                        ((pixel_y >= asteroid_center_y) ?
-                                                         pixel_y - asteroid_center_y : asteroid_center_y - pixel_y);
-                asteroid_pixel = (asteroid_distance >= asteroid_size - 10'd3) &&
-                                                 (asteroid_distance <= asteroid_size) &&
-                                                 (pixel_x >= asteroid_left) && (pixel_x < asteroid_right) &&
-                                                 (pixel_y >= asteroid_top) && (pixel_y < asteroid_bottom);
+        // 3D diagonal corridor corner rails
+        spoke_diag = (((dx > dy) ? (dx - dy) : (dy - dx)) < 10'd2) && (r_oct > 10'd15) && (r_oct < 10'd320);
 
-        red = 4'h0;
-        green = 4'h0;
-        blue = 4'h0;
+        // Procedural background stars
+        star_pixel = ((pixel_x[2:0] ^ pixel_y[2:0] ^ frame_count[2:0]) == 3'b000) &&
+                     (pixel_x[1] ^ pixel_y[3]) && (r_oct > 10'd100);
 
-        if (active_video) begin
-            if (tunnel_ring || tunnel_spoke || ship_pixel || asteroid_pixel) begin
-                red = 4'h8;
-                green = 4'h8;
-                blue = 4'h8;
+        // -------------------------------------------------------------
+        // 2. Player Ship (Star Fox Arwing) Geometry
+        // -------------------------------------------------------------
+        ship_dx = (pixel_x >= player_x) ? (pixel_x - player_x) : (player_x - pixel_x);
+
+        // Tapered nose cone
+        ship_nose = (pixel_y >= 10'd410) && (pixel_y < 10'd430) &&
+                    (ship_dx <= (((pixel_y - 10'd410) >> 1) + 10'd1));
+
+        // Central fuselage
+        ship_body = (pixel_y >= 10'd430) && (pixel_y < 10'd452) && (ship_dx <= 10'd8);
+
+        // Swept-back wings
+        wing_width = ((pixel_y - 10'd430) * 10'd3) >> 1;
+        ship_wings = (pixel_y >= 10'd432) && (pixel_y < 10'd455) && (ship_dx <= wing_width);
+
+        // Animated engine thruster flame
+        ship_thruster = (pixel_y >= 10'd452) && (pixel_y < 10'd464) && (ship_dx <= 10'd5);
+
+        ship_pixel = ship_nose || ship_body || ship_wings || ship_thruster;
+
+        // -------------------------------------------------------------
+        // 3. 3D Asteroid Geometry
+        // -------------------------------------------------------------
+        ast_dx = (pixel_x >= asteroid_x) ? (pixel_x - asteroid_x) : (asteroid_x - pixel_x);
+        ast_dy = (pixel_y >= asteroid_y) ? (pixel_y - asteroid_y) : (asteroid_y - pixel_y);
+        ast_size = 10'd8 + ({2'b0, (8'd255 - asteroid_depth)} >> 1);
+
+        // Faceted octagonal rock shape
+        ast_dist = (ast_dx > ast_dy) ? (ast_dx + (ast_dy >> 1)) : (ast_dy + (ast_dx >> 1));
+        asteroid_pixel = (ast_dist <= ast_size);
+
+        // -------------------------------------------------------------
+        // 4. Color Shading Hierarchy
+        // -------------------------------------------------------------
+        if (!active_video) begin
+            red   = 4'h0;
+            green = 4'h0;
+            blue  = 4'h0;
+        end else if (ship_pixel) begin
+            // Player Arwing Shading
+            if ((pixel_y >= 10'd420) && (pixel_y < 10'd432) && (ship_dx <= 10'd3)) begin
+                // Cyan Glass Cockpit
+                red   = 4'h0;
+                green = 4'hE;
+                blue  = 4'hF;
+            end else if ((pixel_y >= 10'd448) && (ship_dx >= wing_width - 10'd3)) begin
+                // Red Laser Cannons
+                red   = 4'hF;
+                green = 4'h1;
+                blue  = 4'h2;
+            end else if (ship_wings && (ship_dx > 10'd8)) begin
+                // Metallic Blue Wings
+                red   = 4'h1;
+                green = 4'h5;
+                blue  = 4'hE;
+            end else if (ship_thruster) begin
+                // Pulsing Cyan Engine Plasma
+                red   = 4'h0;
+                green = 4'hC + {2'b0, frame_count[1:0]};
+                blue  = 4'hF;
+            end else begin
+                // White Main Hull
+                red   = 4'hE;
+                green = 4'hE;
+                blue  = 4'hF;
             end
+        end else if (asteroid_pixel) begin
+            // 3D Asteroid Facet Shading
+            if (ast_dist >= ast_size - 10'd2) begin
+                // Glowing Molten Outer Rim
+                red   = 4'hF;
+                green = 4'h6;
+                blue  = 4'h0;
+            end else if ((pixel_x < asteroid_x) && (pixel_y < asteroid_y)) begin
+                // Amber Surface Highlight
+                red   = 4'hF;
+                green = 4'hB;
+                blue  = 4'h4;
+            end else if (pixel_x > asteroid_x + (ast_size >> 2)) begin
+                // Deep Rust Shadow
+                red   = 4'h7;
+                green = 4'h1;
+                blue  = 4'h0;
+            end else begin
+                // Fiery Red-Orange Body
+                red   = 4'hD;
+                green = 4'h4;
+                blue  = 4'h1;
+            end
+        end else if (tunnel_ring) begin
+            // Neon Cyan Tunnel Rings
+            red   = 4'h0;
+            green = 4'hC;
+            blue  = 4'hF;
+        end else if (spoke_diag) begin
+            // Purple/Magenta Perspective Corridor Rails
+            red   = 4'h9;
+            green = 4'h2;
+            blue  = 4'hD;
+        end else if (star_pixel) begin
+            // Starfield
+            red   = 4'hF;
+            green = 4'hF;
+            blue  = 4'hD;
+        end else begin
+            // Deep Cosmic Blue Space Background Gradient
+            red   = {2'b0, pixel_y[9:8]};
+            green = 4'h0;
+            blue  = 4'h2 + {2'b0, pixel_y[8:7]};
         end
     end
+
 endmodule
