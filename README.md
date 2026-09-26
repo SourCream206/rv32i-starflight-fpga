@@ -1,6 +1,8 @@
 # RV32I Starflight FPGA
 
-A custom RV32I-style RISC-V CPU on an Intel MAX 10 DE10-Lite FPGA, extended with a procedural pseudo-3D VGA space-shooter renderer controlled by the onboard accelerometer and pushbuttons.
+A custom RV32I-style RISC-V CPU on an Intel MAX 10 DE10-Lite FPGA, extended with a procedural pseudo-3D VGA space shooter controlled by the onboard accelerometer and pushbutton input.
+
+The active Quartus top-level entity is `riscv_soc`.
 
 ## Project Scope
 
@@ -18,20 +20,20 @@ The current game architecture avoids a framebuffer. C updates compact object sta
 
 ## Firmware
 
-The intended compiler target is:
+The firmware is compiled for the CPU's supported base ISA:
 
 ```text
 -march=rv32i -mabi=ilp32
 ```
 
-Build with a bare-metal `riscv32-unknown-elf` toolchain:
+Build with the xPack bare-metal toolchain or another compatible toolchain. The xPack installation uses the `riscv-none-elf-*` executable prefix:
 
 ```powershell
-$env:RISCV = 'C:\path\to\riscv-toolchain'
+$env:RISCV = 'C:\Users\ayush\AppData\Roaming\xPacks\@xpack-dev-tools\riscv-none-elf-gcc\15.2.0-1.1\.content'
 .\software\build.ps1
 ```
 
-The script generates `software/firmware.elf` and `software/imem.hex`. Generated firmware files are ignored by Git.
+The script generates `software/firmware.elf` and `software/imem.hex`. The instruction image is versioned because the FPGA ROM consumes it directly.
 
 ## Build and Test
 
@@ -50,14 +52,14 @@ Both tests should print `PASS`.
 
 ### Build the C game firmware
 
-The current CPU requires a bare-metal RV32I toolchain. The default RISC-V toolchain target is often RV64GC, so use explicit RV32I flags through `build.ps1`:
+The current CPU requires a bare-metal RV32I toolchain. The installed xPack package is `@xpack-dev-tools/riscv-none-elf-gcc@15.2.0-1.1`; use its `.content` directory as `RISCV`:
 
 ```powershell
-$env:RISCV = 'C:\path\to\riscv-toolchain'
+$env:RISCV = "$env:APPDATA\xPacks\@xpack-dev-tools\riscv-none-elf-gcc\15.2.0-1.1\.content"
 .\software\build.ps1
 ```
 
-This must update `software/imem.hex`. If `imem.hex` still contains only nine words, the FPGA will run the old accelerometer display demo rather than the C game.
+This updates `software/imem.hex`. The current game image contains 87 RV32I instructions; a nine-word image is the old accelerometer display demo.
 
 ### Build in Quartus
 
@@ -73,7 +75,7 @@ Program that `.sof` with Quartus Programmer using the DE10-Lite USB-Blaster. Con
 
 ### Current test status
 
-The CPU and VGA simulations pass. The checked-in `.sof` contains the VGA renderer and static scene, but the C game is not present until the firmware toolchain is installed and `software/build.ps1` is run. Timing should also be reviewed in `output_files\riscVCPU.sta.rpt` before relying on high-speed CPU execution.
+The CPU and VGA simulations pass. The C game firmware builds successfully with the xPack toolchain and fits within the 256-word instruction ROM. The latest successful Quartus build includes the VGA renderer and game firmware. Quartus still reports negative setup slack at the 50 MHz CPU clock, so hardware behavior is not timing-closed yet.
 
 ## Verification
 
@@ -81,4 +83,4 @@ The CPU regression and VGA renderer tests are run with Questa. Quartus analysis 
 
 ## Status
 
-The CPU and VGA renderer are implemented and simulation-tested. Final hardware validation still requires programming the generated `.sof` and testing VGA, accelerometer input, and buttons on the physical DE10-Lite.
+The CPU, VGA renderer, and C game firmware are implemented and simulation/build tested. Final hardware validation requires programming `output_files\riscVCPU.sof` and testing VGA, accelerometer input, and buttons on the physical DE10-Lite. Timing closure remains an engineering task before calling the hardware release complete.

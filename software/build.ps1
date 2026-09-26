@@ -9,10 +9,20 @@ if ([string]::IsNullOrWhiteSpace($Toolchain)) {
     throw 'Set RISCV to the bare-metal toolchain directory or pass -Toolchain.'
 }
 
-$gcc = Join-Path $Toolchain 'bin\riscv32-unknown-elf-gcc.exe'
-$objcopy = Join-Path $Toolchain 'bin\riscv32-unknown-elf-objcopy.exe'
-if (!(Test-Path $gcc) -or !(Test-Path $objcopy)) {
-    throw "Could not find riscv32-unknown-elf-gcc.exe and objcopy.exe under $Toolchain."
+$prefixes = @('riscv32-unknown-elf', 'riscv-none-elf')
+$gcc = $null
+$objcopy = $null
+foreach ($prefix in $prefixes) {
+    $candidateGcc = Join-Path $Toolchain "bin\$prefix-gcc.exe"
+    $candidateObjcopy = Join-Path $Toolchain "bin\$prefix-objcopy.exe"
+    if ((Test-Path $candidateGcc) -and (Test-Path $candidateObjcopy)) {
+        $gcc = $candidateGcc
+        $objcopy = $candidateObjcopy
+        break
+    }
+}
+if (!$gcc -or !$objcopy) {
+    throw "Could not find a supported RISC-V GCC/objcopy pair under $Toolchain."
 }
 
 $software = Join-Path $ProjectRoot 'software'
