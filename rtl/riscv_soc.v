@@ -34,6 +34,10 @@ module riscv_soc (
     wire [9:0] pixel_x, pixel_y;
     wire active_video, frame_tick;
     wire [3:0] video_red, video_green, video_blue;
+    reg [9:0] live_player_x;
+    reg [9:0] live_asteroid_x;
+    reg [9:0] live_asteroid_y;
+    reg [7:0] live_asteroid_depth;
     reg  [9:0]  led_reg;
     reg  [9:0]  player_x_reg;
     reg  [9:0]  asteroid_x_reg;
@@ -86,6 +90,28 @@ module riscv_soc (
 
     assign LEDR = led_reg;
 
+    always @(*) begin
+        if ($signed(tilt_x) < -16'sd960)
+            live_player_x = 10'd80;
+        else if ($signed(tilt_x) > 16'sd960)
+            live_player_x = 10'd560;
+        else
+            live_player_x = 10'd320 + ($signed(tilt_x) >>> 2);
+    end
+
+    always @(posedge clk) begin
+        if (cpu_rst) begin
+            live_asteroid_x <= 10'd320;
+            live_asteroid_y <= 10'd220;
+            live_asteroid_depth <= 8'd240;
+        end else if (frame_tick) begin
+            if (live_asteroid_depth > 8'd8)
+                live_asteroid_depth <= live_asteroid_depth - 8'd2;
+            else
+                live_asteroid_depth <= 8'd240;
+        end
+    end
+
     hex_decoder h0 (.in(hex_display_reg[3:0]),   .out(HEX0));
     hex_decoder h1 (.in(hex_display_reg[7:4]),   .out(HEX1));
     hex_decoder h2 (.in(hex_display_reg[11:8]),  .out(HEX2));
@@ -108,10 +134,10 @@ module riscv_soc (
         .pixel_x(pixel_x),
         .pixel_y(pixel_y),
         .active_video(active_video),
-        .player_x(player_x_reg),
-        .asteroid_x(asteroid_x_reg),
-        .asteroid_y(asteroid_y_reg),
-        .asteroid_depth(asteroid_depth_reg),
+        .player_x(live_player_x),
+        .asteroid_x(live_asteroid_x),
+        .asteroid_y(live_asteroid_y),
+        .asteroid_depth(live_asteroid_depth),
         .red(video_red),
         .green(video_green),
         .blue(video_blue)
