@@ -37,12 +37,14 @@ module riscv_soc (
     wire [3:0] video_red, video_green, video_blue;
     wire [15:0] sensor_magnitude = tilt_x[15] ? ((~tilt_x) + 16'd1) : tilt_x;
     reg [9:0] live_player_x;
+    reg [9:0] player_target_x;
     reg [9:0] live_player_y;
     reg [9:0] live_asteroid_x;
     reg [9:0] live_asteroid_y;
     reg [7:0] live_asteroid_depth;
     reg [9:0] asteroid_lfsr;
     reg [9:0] game_score;
+    reg game_started;
     reg game_over;
     reg button_prev;
     reg  [9:0]  led_reg;
@@ -51,21 +53,26 @@ module riscv_soc (
     reg  [9:0]  asteroid_y_reg;
     reg  [7:0]  asteroid_depth_reg;
 
+    wire [7:0] asteroid_step = 8'd2 + {6'd0, game_score[5:4]};
+
+    wire [9:0] next_asteroid_x = 10'd235 + {2'b0, asteroid_lfsr[6:0]};
+    wire [9:0] next_asteroid_y = asteroid_lfsr[8]
+        ? 10'd205 + {2'b0, asteroid_lfsr[5:0]}
+        : 10'd165 + {2'b0, asteroid_lfsr[5:0]};
     // --------------------------------------------------------
     // ADDRESS DECODER (Routing Logic)
     // --------------------------------------------------------
     // Protect the RAM: Only enable writing if address is 0x0001XXXX
     wire ram_we = cpu_we & (dmem_addr[31:16] == 16'h0001);
-    
     // Enable writing to HEX if address is 0x0003XXXX
     wire hex_we = cpu_we & (dmem_addr[31:16] == 16'h0003);
     wire led_we = cpu_we & (dmem_addr[31:16] == 16'h0004);
     wire video_we = cpu_we & (dmem_addr[31:16] == 16'h0005);
 
     // Read Routing
-    assign cpu_rdata = (dmem_addr[31:16] == 16'h0001) ? real_dmem_rdata :          // RAM
-                       (dmem_addr[31:16] == 16'h0002) ? {{16{tilt_x[15]}}, tilt_x} : // Signed sensor
-                       (dmem_addr == 32'h0000_0004)   ? {23'b0, ~BTN1, SW[8:1]} : 32'd0;  // Switches
+    assign cpu_rdata = (dmem_addr[31:16] == 16'h0001) ? real_dmem_rdata :
+                       (dmem_addr[31:16] == 16'h0002) ? {{16{tilt_x[15]}}, tilt_x} :
+                       (dmem_addr == 32'h0000_0004)   ? {23'b0, ~BTN1, SW[8:1]} : 32'd0;
 
     // --------------------------------------------------------
     // HEX Display Register
@@ -98,15 +105,52 @@ module riscv_soc (
     assign LEDR = game_score;
 
     always @(*) begin
-        if ($signed(tilt_x) < -16'sd960)
-            live_player_x = 10'd160;
-        else if ($signed(tilt_x) > 16'sd960)
-            live_player_x = 10'd480;
-        else if (tilt_x[15])
-            live_player_x = 10'd320 - sensor_magnitude[9:3];
+        if ($signed(tilt_x) < -16'sd125)
+            player_target_x = 10'd70;
+        else if ($signed(tilt_x) > 16'sd125)
+            player_target_x = 10'd570;
         else
-            live_player_x = 10'd320 + sensor_magnitude[9:3];
-        live_player_y = 10'd360;
+            player_target_x = 10'd320 + ($signed(tilt_x) <<< 1);
+    end
+
+    always @(posedge clk) begin
+        if (cpu_rst) begin
+            live_player_x <= 10'd320;
+        end else if (frame_tick) begin
+            if (player_target_x > live_player_x + 10'd6)
+                live_player_x <= live_player_x + 10'd6;
+            else if (player_target_x + 10'd6 < live_player_x)
+                live_player_x <= live_player_x - 10'd6;
+            else
+                live_player_x <= player_target_x;
+        end
+    end
+
+    // Vertical movement: SW8/SW7 act as hold-to-move up/down (like a
+    // d-pad), not an absolute position readout. This starts centered on
+    // reset and only moves while a switch is actively held, so the ship
+    // no longer defaults to the top of the screen and can be steered in
+    // real time together with the tilt-based X movement.
+    localparam [9:0] PLAYER_Y_MIN  = 10'd145;
+    localparam [9:0] PLAYER_Y_MAX  = 10'd285;
+    localparam [9:0] PLAYER_Y_STEP = 10'd3;
+
+    always @(posedge clk) begin
+        if (cpu_rst) begin
+            live_player_y <= 10'd240;
+        end else if (frame_tick) begin
+            if (SW[8] && !SW[7]) begin
+                if (live_player_y > PLAYER_Y_MIN + PLAYER_Y_STEP)
+                    live_player_y <= live_player_y - PLAYER_Y_STEP;
+                else
+                    live_player_y <= PLAYER_Y_MIN;
+            end else if (SW[7] && !SW[8]) begin
+                if (live_player_y < PLAYER_Y_MAX - PLAYER_Y_STEP)
+                    live_player_y <= live_player_y + PLAYER_Y_STEP;
+                else
+                    live_player_y <= PLAYER_Y_MAX;
+            end
+        end
     end
 
     always @(posedge clk) begin
@@ -116,43 +160,47 @@ module riscv_soc (
             live_asteroid_depth <= 8'd240;
             asteroid_lfsr <= 10'b1011010111;
             game_score <= 10'd0;
+            game_started <= 1'b0;
             game_over <= 1'b0;
             button_prev <= 1'b0;
         end else if (frame_tick) begin
             asteroid_lfsr <= {asteroid_lfsr[8:0],
                               asteroid_lfsr[9] ^ asteroid_lfsr[6]};
             button_prev <= ~BTN1;
-            if (game_over) begin
+            if (!game_started) begin
+                if ((~BTN1) && !button_prev) begin
+                    game_started <= 1'b1;
+                    live_asteroid_depth <= 8'd240;
+                    live_asteroid_x <= next_asteroid_x;
+                    live_asteroid_y <= next_asteroid_y;
+                end
+            end else if (game_over) begin
                 if ((~BTN1) && !button_prev) begin
                     game_over <= 1'b0;
                     game_score <= 10'd0;
                     live_asteroid_depth <= 8'd240;
-                    live_asteroid_x <= 10'd160 + {1'b0, asteroid_lfsr[8:0]};
-                    live_asteroid_y <= 10'd150 + {2'b0, asteroid_lfsr[7:0]};
+                    live_asteroid_x <= next_asteroid_x;
+                    live_asteroid_y <= next_asteroid_y;
                 end
             end else if (live_asteroid_depth > 8'd8) begin
-                live_asteroid_depth <= live_asteroid_depth - 8'd2;
-                if ((~BTN1) && !button_prev &&
-                    (live_asteroid_depth < 8'd90) &&
-                    (live_asteroid_x > live_player_x - 10'd55) &&
-                    (live_asteroid_x < live_player_x + 10'd55) &&
-                    (live_asteroid_y > live_player_y - 10'd55) &&
-                    (live_asteroid_y < live_player_y + 10'd55)) begin
-                    game_score <= game_score + 10'd1;
-                    live_asteroid_depth <= 8'd240;
-                    live_asteroid_x <= 10'd160 + {1'b0, asteroid_lfsr[8:0]};
-                    live_asteroid_y <= 10'd150 + {2'b0, asteroid_lfsr[7:0]};
+                live_asteroid_depth <= live_asteroid_depth - asteroid_step;
+                if ((live_asteroid_depth <= 8'd24) &&
+                    (live_asteroid_x > live_player_x - 10'd44) &&
+                    (live_asteroid_x < live_player_x + 10'd44) &&
+                    (live_asteroid_y > live_player_y - 10'd44) &&
+                    (live_asteroid_y < live_player_y + 10'd44)) begin
+                    game_over <= 1'b1;
                 end
-            end else if ((live_asteroid_x > live_player_x - 10'd65) &&
-                         (live_asteroid_x < live_player_x + 10'd65) &&
-                         (live_asteroid_y > live_player_y - 10'd65) &&
-                         (live_asteroid_y < live_player_y + 10'd65)) begin
+            end else if ((live_asteroid_x > live_player_x - 10'd44) &&
+                         (live_asteroid_x < live_player_x + 10'd44) &&
+                         (live_asteroid_y > live_player_y - 10'd44) &&
+                         (live_asteroid_y < live_player_y + 10'd44)) begin
                 game_over <= 1'b1;
             end else begin
                 game_score <= game_score + 10'd1;
                 live_asteroid_depth <= 8'd240;
-                live_asteroid_x <= 10'd160 + {1'b0, asteroid_lfsr[8:0]};
-                live_asteroid_y <= 10'd150 + {2'b0, asteroid_lfsr[7:0]};
+                live_asteroid_x <= next_asteroid_x;
+                live_asteroid_y <= next_asteroid_y;
             end
         end
     end
@@ -186,6 +234,8 @@ module riscv_soc (
         .asteroid_x(live_asteroid_x),
         .asteroid_y(live_asteroid_y),
         .asteroid_depth(live_asteroid_depth),
+        .game_score(game_score),
+        .game_started(game_started),
         .game_over(game_over),
         .red(video_red),
         .green(video_green),

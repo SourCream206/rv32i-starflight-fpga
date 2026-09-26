@@ -13,6 +13,8 @@ module tb_video;
     reg [3:0] red;
     reg [3:0] green;
     reg [3:0] blue;
+    reg game_started;
+    reg [9:0] game_score;
     wire [3:0] rendered_red;
     wire [3:0] rendered_green;
     wire [3:0] rendered_blue;
@@ -39,6 +41,8 @@ module tb_video;
         .asteroid_x(10'd320),
         .asteroid_y(10'd180),
         .asteroid_depth(8'd220),
+        .game_score(game_score),
+        .game_started(game_started),
         .game_over(1'b0),
         .red(rendered_red),
         .green(rendered_green),
@@ -50,6 +54,8 @@ module tb_video;
     initial begin
         clk = 1'b0;
         rst = 1'b1;
+        game_started = 1'b0;
+        game_score = 10'd7;
         #20;
         rst = 1'b0;
 
@@ -59,14 +65,22 @@ module tb_video;
 
         @(posedge frame_tick);
 
+        force timing.pixel_x = 10'd120;
+        force timing.pixel_y = 10'd200;
+        #1;
+        if (rendered_green == 4'd0)
+            $fatal(1, "Start panel was not rendered");
+
+        game_started = 1'b1;
+
         force timing.pixel_x = 10'd320;
         force timing.pixel_y = 10'd360;
         #1;
         if (rendered_green == 4'd0)
             $fatal(1, "Player was not rendered");
 
-        force timing.pixel_x = 10'd304;
-        force timing.pixel_y = 10'd180;
+        force timing.pixel_x = 10'd320;
+        force timing.pixel_y = 10'd232;
         #1;
         if (rendered_red == 4'd0)
             $fatal(1, "Asteroid was not rendered");
