@@ -35,6 +35,7 @@ module riscv_soc (
     wire [7:0] frame_count;
     wire active_video, frame_tick;
     wire [3:0] video_red, video_green, video_blue;
+    wire [15:0] sensor_magnitude = tilt_x[15] ? ((~tilt_x) + 16'd1) : tilt_x;
     reg [9:0] live_player_x;
     reg [9:0] live_player_y;
     reg [9:0] live_asteroid_x;
@@ -101,14 +102,15 @@ module riscv_soc (
             live_player_x = 10'd160;
         else if ($signed(tilt_x) > 16'sd960)
             live_player_x = 10'd480;
+        else if (tilt_x[15])
+            live_player_x = 10'd320 - sensor_magnitude[9:3];
         else
-            live_player_x = 10'd320 + ($signed(tilt_x) >>> 3);
+            live_player_x = 10'd320 + sensor_magnitude[9:3];
         live_player_y = 10'd360;
     end
 
     always @(posedge clk) begin
         if (cpu_rst) begin
-            live_player_y <= 10'd360;
             live_asteroid_x <= 10'd320;
             live_asteroid_y <= 10'd220;
             live_asteroid_depth <= 8'd240;
