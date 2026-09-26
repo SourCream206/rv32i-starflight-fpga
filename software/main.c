@@ -9,7 +9,7 @@
 
 static void delay(void) {
     volatile unsigned int count;
-    for (count = 0; count < 4000; count = count + 1) {
+    for (count = 0; count < 20000; count = count + 1) {
     }
 }
 
@@ -34,10 +34,10 @@ int main() {
             HEX_DISPLAYS = (level << 20) | (level << 16) | (level << 12);
         }
 
-        if (tilt_value < -32 && player_x > 10)
-            player_x = player_x - 10;
-        else if (tilt_value > 32 && player_x < 630)
-            player_x = player_x + 10;
+        if (tilt_value < -128 && player_x > 10)
+            player_x = player_x - 4;
+        else if (tilt_value > 128 && player_x < 630)
+            player_x = player_x + 4;
 
         if (BUTTONS & 1) {
             asteroid_x = player_x;

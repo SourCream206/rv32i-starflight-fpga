@@ -60,6 +60,7 @@ module tb_video;
         if (rendered_green == 4'd0)
             $fatal(1, "Player was not rendered");
 
+        force timing.pixel_x = 10'd304;
         force timing.pixel_y = 10'd180;
         #1;
         if (rendered_red == 4'd0)

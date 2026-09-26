@@ -15,13 +15,13 @@ module game_video (
     reg [9:0] asteroid_right;
     reg [9:0] asteroid_top;
     reg [9:0] asteroid_bottom;
-    reg [9:0] player_left;
-    reg [9:0] player_right;
-    reg [9:0] player_top;
-    reg [9:0] player_bottom;
-    reg road_left;
-    reg road_right;
-    reg lane_marker;
+    reg [9:0] dx;
+    reg [9:0] dy;
+    reg [9:0] tunnel_radius;
+    reg tunnel_ring;
+    reg tunnel_spoke;
+    reg ship_pixel;
+    reg asteroid_pixel;
 
     always @(*) begin
         asteroid_size = 10'd8 + ((8'd255 - asteroid_depth) >> 2);
@@ -30,51 +30,44 @@ module game_video (
         asteroid_top = (asteroid_y > asteroid_size) ? asteroid_y - asteroid_size : 10'd0;
         asteroid_bottom = asteroid_y + asteroid_size;
 
-        player_left = (player_x > 10'd24) ? player_x - 10'd24 : 10'd0;
-        player_right = player_x + 10'd24;
-        player_top = 10'd420;
-        player_bottom = 10'd460;
+                dx = (pixel_x >= 10'd320) ? pixel_x - 10'd320 : 10'd320 - pixel_x;
+                dy = (pixel_y >= 10'd240) ? pixel_y - 10'd240 : 10'd240 - pixel_y;
+                tunnel_radius = (dx > dy) ? dx : dy;
+                tunnel_ring = (tunnel_radius[4:0] <= 2) && (tunnel_radius > 10'd20);
+                tunnel_spoke = ((pixel_x >= (10'd320 - (pixel_y >> 3))) &&
+                                                (pixel_x < (10'd323 - (pixel_y >> 3)))) ||
+                                             ((pixel_x >= (10'd317 + (pixel_y >> 3))) &&
+                                                (pixel_x < (10'd320 + (pixel_y >> 3))));
 
-        road_left = (pixel_x >= (10'd140 + (pixel_y >> 2))) &&
-                    (pixel_x < (10'd145 + (pixel_y >> 2)));
-        road_right = (pixel_x >= (10'd495 - (pixel_y >> 2))) &&
-                     (pixel_x < (10'd500 - (pixel_y >> 2)));
-        lane_marker = (pixel_y[5:4] == 2'b01) &&
-                      (pixel_x >= 10'd317) && (pixel_x < 10'd323);
+                ship_pixel = ((pixel_y >= 10'd438) && (pixel_y < 10'd442) &&
+                                            (pixel_x >= player_x - 10'd28) &&
+                                            (pixel_x < player_x + 10'd29)) ||
+                                         ((pixel_x >= player_x - 10'd3) &&
+                                            (pixel_x < player_x + 10'd3) &&
+                                            (pixel_y >= 10'd420) && (pixel_y < 10'd455));
+
+                asteroid_pixel = ((((pixel_x >= asteroid_left) &&
+                                                        (pixel_x < asteroid_left + 10'd3)) ||
+                                                     ((pixel_x >= asteroid_right - 10'd3) &&
+                                                        (pixel_x < asteroid_right))) &&
+                                                    (pixel_y >= asteroid_top) &&
+                                                    (pixel_y < asteroid_bottom)) ||
+                                                 ((((pixel_y >= asteroid_top) &&
+                                                        (pixel_y < asteroid_top + 10'd3)) ||
+                                                     ((pixel_y >= asteroid_bottom - 10'd3) &&
+                                                        (pixel_y < asteroid_bottom))) &&
+                                                    (pixel_x >= asteroid_left) &&
+                                                    (pixel_x < asteroid_right));
 
         red = 4'h0;
         green = 4'h0;
         blue = 4'h0;
 
         if (active_video) begin
-            red = 4'h1;
-            green = 4'h2;
-            blue = 4'h7;
-
-            if (pixel_y >= 10'd300) begin
-                red = 4'h0;
-                green = 4'h1;
-                blue = 4'h1;
-            end
-
-            if (road_left || road_right || lane_marker) begin
+            if (tunnel_ring || tunnel_spoke || ship_pixel || asteroid_pixel) begin
                 red = 4'h8;
                 green = 4'h8;
                 blue = 4'h8;
-            end
-
-            if ((pixel_x >= player_left) && (pixel_x < player_right) &&
-                (pixel_y >= player_top) && (pixel_y < player_bottom)) begin
-                red = 4'h0;
-                green = 4'hF;
-                blue = 4'h4;
-            end
-
-            if ((pixel_x >= asteroid_left) && (pixel_x < asteroid_right) &&
-                (pixel_y >= asteroid_top) && (pixel_y < asteroid_bottom)) begin
-                red = 4'hF;
-                green = 4'h3;
-                blue = 4'h0;
             end
         end
     end

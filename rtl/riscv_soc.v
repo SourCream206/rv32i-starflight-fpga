@@ -53,7 +53,7 @@ module riscv_soc (
 
     // Read Routing
     assign cpu_rdata = (dmem_addr[31:16] == 16'h0001) ? real_dmem_rdata :          // RAM
-                       (dmem_addr[31:16] == 16'h0002) ? {16'b0, tilt_x} :          // Sensor
+                       (dmem_addr[31:16] == 16'h0002) ? {{16{tilt_x[15]}}, tilt_x} : // Signed sensor
                        (dmem_addr == 32'h0000_0004)   ? {23'b0, ~BTN1, SW[8:1]} : 32'd0;  // Switches
 
     // --------------------------------------------------------
