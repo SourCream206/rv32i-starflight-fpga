@@ -5,7 +5,8 @@ module adxl345_controller (
     output wire        GSENSOR_SCLK,
     inout  wire        GSENSOR_SDI,
     inout  wire        GSENSOR_SDO,
-    output wire [15:0] data_x
+    output wire [15:0] data_x,
+    output wire [15:0] data_y
 );
 
     wire dly_rst;
@@ -34,6 +35,8 @@ module adxl345_controller (
         .iG_INT2(1'b0), // We don't need interrupts, the CPU will just poll it
         .oDATA_L(data_x[7:0]),
         .oDATA_H(data_x[15:8]),
+        .oDATA_Y_L(data_y[7:0]),
+        .oDATA_Y_H(data_y[15:8]),
         .SPI_SDIO(GSENSOR_SDI),
         .oSPI_CSN(GSENSOR_CS_N),
         .oSPI_CLK(GSENSOR_SCLK)

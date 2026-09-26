@@ -4,11 +4,18 @@ A custom RV32I-style RISC-V CPU on an Intel MAX 10 DE10-Lite FPGA, extended with
 
 The active Quartus top-level entity is `riscv_soc`.
 
+## Demo
+
+<video src="./demo.mp4" controls width="800"></video>
+
+[Open or download the demo video](demo.mp4)
+
 ## Project Scope
 
 - Custom 32-bit RV32I-style CPU core in Verilog
 - Memory-mapped accelerometer, buttons, LEDs, HEX displays, and VGA game registers
 - 640x480 procedural VGA renderer with a ship and depth-scaled asteroid
+- ADXL345 X/Y tilt input with smooth two-axis ship movement
 - Bare-metal C firmware target for `rv32i` / `ilp32`
 - Questa CPU and VGA simulation testbenches
 
@@ -16,7 +23,7 @@ The active Quartus top-level entity is `riscv_soc`.
 
 Target board: Terasic DE10-Lite, MAX 10 `10M50DAF484C7G`.
 
-The current game architecture avoids a framebuffer. C updates compact object state, while FPGA logic generates VGA timing and draws the scene.
+The current game architecture avoids a framebuffer. The ADXL345 SPI controller reads both X and Y axes, while FPGA logic converts tilt into smooth ship targets, generates VGA timing, and draws the scene.
 
 ## Firmware
 
@@ -59,7 +66,7 @@ $env:RISCV = "$env:APPDATA\xPacks\@xpack-dev-tools\riscv-none-elf-gcc\15.2.0-1.1
 .\software\build.ps1
 ```
 
-This updates `software/imem.hex`. The current game image contains 87 RV32I instructions; a nine-word image is the old accelerometer display demo.
+This updates `software/imem.hex`. The current game image contains 86 RV32I instructions; a nine-word image is the old accelerometer display demo.
 
 ### Build in Quartus
 
@@ -75,7 +82,7 @@ Program that `.sof` with Quartus Programmer using the DE10-Lite USB-Blaster. Con
 
 ### Current test status
 
-The CPU and VGA simulations pass. The C game firmware builds successfully with the xPack toolchain and fits within the 256-word instruction ROM. The latest successful Quartus build includes the VGA renderer and game firmware. Quartus still reports negative setup slack at the 50 MHz CPU clock, so hardware behavior is not timing-closed yet.
+The CPU and VGA simulations pass. The C game firmware builds successfully with the xPack toolchain and fits within the 256-word instruction ROM. The latest successful Quartus build includes the VGA renderer and game firmware, with 1,885 logic elements, 191 registers, and positive setup and hold slack at the 50 MHz CPU clock.
 
 ## Verification
 
@@ -83,4 +90,4 @@ The CPU regression and VGA renderer tests are run with Questa. Quartus analysis 
 
 ## Status
 
-The CPU, VGA renderer, and C game firmware are implemented and simulation/build tested. Final hardware validation requires programming `output_files\riscVCPU.sof` and testing VGA, accelerometer input, and buttons on the physical DE10-Lite. Timing closure remains an engineering task before calling the hardware release complete.
+The CPU, VGA renderer, two-axis accelerometer control, and C game firmware are implemented and simulation/build tested. The latest Quartus flow produces `output_files\riscVCPU.sof` and reports a worst-case Fmax of 80.19 MHz, +7.530 ns setup slack, and +0.340 ns hold slack. Final hardware validation still requires programming the `.sof` and testing VGA, accelerometer input, and buttons on the physical DE10-Lite.

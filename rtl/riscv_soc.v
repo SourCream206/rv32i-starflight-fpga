@@ -30,6 +30,7 @@ module riscv_soc (
     wire [3:0]  dmem_byte_en;
     wire [31:0] cpu_rdata; 
     wire [15:0] tilt_x;
+    wire [15:0] tilt_y;
     wire illegal_instruction;
     wire [9:0] pixel_x, pixel_y;
     wire [7:0] frame_count;
@@ -38,6 +39,7 @@ module riscv_soc (
     wire [15:0] sensor_magnitude = tilt_x[15] ? ((~tilt_x) + 16'd1) : tilt_x;
     reg [9:0] live_player_x;
     reg [9:0] player_target_x;
+    reg [9:0] player_target_y;
     reg [9:0] live_player_y;
     reg [9:0] live_asteroid_x;
     reg [9:0] live_asteroid_y;
@@ -111,6 +113,12 @@ module riscv_soc (
             player_target_x = 10'd570;
         else
             player_target_x = 10'd320 + ($signed(tilt_x) <<< 1);
+        if ($signed(tilt_y) < -16'sd35)
+            player_target_y = 10'd285;
+        else if ($signed(tilt_y) > 16'sd35)
+            player_target_y = 10'd145;
+        else
+            player_target_y = 10'd215 - ($signed(tilt_y) <<< 1);
     end
 
     always @(posedge clk) begin
@@ -149,7 +157,12 @@ module riscv_soc (
                     live_player_y <= live_player_y + PLAYER_Y_STEP;
                 else
                     live_player_y <= PLAYER_Y_MAX;
-            end
+            end else if (player_target_y > live_player_y + 10'd3)
+                live_player_y <= live_player_y + 10'd3;
+            else if (player_target_y + 10'd3 < live_player_y)
+                live_player_y <= live_player_y - 10'd3;
+            else
+                live_player_y <= player_target_y;
         end
     end
 
@@ -280,7 +293,8 @@ module riscv_soc (
         .GSENSOR_SCLK(GSENSOR_SCLK),
         .GSENSOR_SDI(GSENSOR_SDI),
         .GSENSOR_SDO(GSENSOR_SDO),
-        .data_x(tilt_x)
+        .data_x(tilt_x),
+        .data_y(tilt_y)
     );
 endmodule
 

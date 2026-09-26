@@ -5,6 +5,8 @@ module spi_ee_config (
 								iG_INT2,
 								oDATA_L,
 								oDATA_H,
+								oDATA_Y_L,
+								oDATA_Y_H,
 								SPI_SDIO,
 								oSPI_CSN,
 								oSPI_CLK);
@@ -21,6 +23,8 @@ input					          iSPI_CLK, iSPI_CLK_OUT;
 input					          iG_INT2;
 output reg [SO_DataL:0] oDATA_L;
 output reg [SO_DataL:0] oDATA_H;
+output reg [SO_DataL:0] oDATA_Y_L;
+output reg [SO_DataL:0] oDATA_Y_H;
 //	SPI Side           
 inout					          SPI_SDIO;
 output					        oSPI_CSN;
@@ -38,10 +42,12 @@ wire	  [SO_DataL:0]	 s2p_data;
 reg     [SO_DataL:0]	 low_byte_data;
 reg		       		       spi_state;
 reg                    high_byte; // indicate to read the high or low byte
+reg                    axis_y_read;
 reg                    read_back; // indicate to read back data 
 reg                    clear_status, read_ready;
 reg     [3:0]          clear_status_d;
 reg                    high_byte_d, read_back_d;
+reg                    axis_y_read_d;
 reg	    [IDLE_MSB:0]   read_idle_count; // reducing the reading rate
 
 //=======================================================
@@ -86,6 +92,7 @@ always@(posedge iSPI_CLK or negedge iRSTN)
 		spi_state	<= IDLE;
 		read_idle_count <= 0; // read mode only
 		high_byte <= 1'b0; // read mode only
+		axis_y_read <= 1'b0;
 		read_back <= 1'b0; // read mode only
     clear_status <= 1'b0;
 	end
@@ -114,12 +121,12 @@ always@(posedge iSPI_CLK or negedge iRSTN)
 				
 					if (high_byte) // multiple-byte read
 				  begin
-					  p2s_data[15:8] <= {READ_MODE, X_HB};						
+					  p2s_data[15:8] <= {READ_MODE, axis_y_read ? Y_HB : X_HB};
 					  read_back      <= 1'b1;
 					end
 				  else if (read_ready)
 				  begin
-					  p2s_data[15:8] <= {READ_MODE, X_LB};						
+					  p2s_data[15:8] <= {READ_MODE, axis_y_read ? Y_LB : X_LB};
 					  read_back      <= 1'b1;
 					end
 				  else if (!clear_status_d[3]&&iG_INT2 || read_idle_count[IDLE_MSB])
@@ -138,8 +145,13 @@ always@(posedge iSPI_CLK or negedge iRSTN)
 				  begin
 				  	if (high_byte_d)
 				  	begin
-				  	  oDATA_H <= s2p_data;	
-				  	  oDATA_L <= low_byte_data;			  		
+					  if (axis_y_read_d) begin
+					    oDATA_Y_H <= s2p_data;
+					    oDATA_Y_L <= low_byte_data;
+					  end else begin
+					    oDATA_H <= s2p_data;
+					    oDATA_L <= low_byte_data;
+					  end
 				  	end
 				  	else
 				  		low_byte_data <= s2p_data;
@@ -154,7 +166,12 @@ always@(posedge iSPI_CLK or negedge iRSTN)
 						if (read_back)
 						begin
 							read_back <= 1'b0;
-					    high_byte <= !high_byte;
+					    if (high_byte) begin
+					      high_byte <= 1'b0;
+					      axis_y_read <= !axis_y_read;
+					    end else begin
+					      high_byte <= 1'b1;
+					    end
 					    read_ready <= 1'b0;					
 					  end
 					  else
@@ -178,6 +195,7 @@ always@(posedge iSPI_CLK or negedge iRSTN)
 	begin
 		high_byte_d <= high_byte;
 		read_back_d <= read_back;
+		axis_y_read_d <= axis_y_read;
 		clear_status_d <= {clear_status_d[2:0], clear_status};
 	end
 
