@@ -75,9 +75,11 @@ the standalone smoke test with:
 .\software\build.ps1 -Source npu_demo.c
 ```
 
-It writes a signed 4x4 INT8 matrix and vector to the NPU, verifies the INT32
-results `[-10, -18, 390, 55]`, then lights all ten LEDs on success. Rebuild the
-default game with `.\software\build.ps1` before using the VGA demo again.
+It writes a signed 16x16 identity matrix, sixteen INT8 activations, and sixteen
+biases to the NPU. The NPU autonomously executes all sixteen 4x4 MAC tiles,
+verifies packed Q4.4 outputs of one and equal Q0.16 softmax probabilities of
+4095, then lights all ten LEDs on success. Rebuild the default game with
+`.\software\build.ps1` before using the VGA demo again.
 
 ### Build in Quartus
 
