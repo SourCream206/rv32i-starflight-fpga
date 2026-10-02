@@ -97,6 +97,19 @@ verifies packed Q4.4 outputs of one and equal Q0.16 softmax probabilities of
 4095, then lights all ten LEDs on success. Rebuild the default game with
 `.\software\build.ps1` before using the VGA demo again.
 
+### Build Transformer firmware
+
+Generate `software\model_weights.h` and `software\quantization_config.h` from
+the sibling NPU repository, then build:
+
+```powershell
+.\software\build.ps1 -Source npu_transformer.c
+```
+
+`npu_transformer.c` loads prompt `THOU `, streams each model tile through NPU
+MMIO, executes Q/K/V/O, causal attention, FFN, and four vocabulary tiles, then
+writes predicted 64-token ASCII index to LEDs at `0x0004_0000`.
+
 ### Build in Quartus
 
 Open `riscVCPU.qpf` in Quartus Prime, or run:
