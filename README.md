@@ -66,6 +66,19 @@ $env:RISCV = "$env:APPDATA\xPacks\@xpack-dev-tools\riscv-none-elf-gcc\15.2.0-1.1
 
 This updates `software/imem.hex`. The current game image contains 86 RV32I instructions; a nine-word image is the old accelerometer display demo.
 
+### Run the NPU smoke test
+
+The NPU occupies `0x0006_xxxx` and is connected to the RV32I data bus. Build
+the standalone smoke test with:
+
+```powershell
+.\software\build.ps1 -Source npu_demo.c
+```
+
+It writes a signed 4x4 INT8 matrix and vector to the NPU, verifies the INT32
+results `[-10, -18, 390, 55]`, then lights all ten LEDs on success. Rebuild the
+default game with `.\software\build.ps1` before using the VGA demo again.
+
 ### Build in Quartus
 
 Open `riscVCPU.qpf` in Quartus Prime, or run:

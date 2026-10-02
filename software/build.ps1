@@ -1,6 +1,7 @@
 param(
     [string]$Toolchain = $env:RISCV,
-    [string]$ProjectRoot = (Resolve-Path (Join-Path $PSScriptRoot '..')).Path
+    [string]$ProjectRoot = (Resolve-Path (Join-Path $PSScriptRoot '..')).Path,
+    [string]$Source = 'main.c'
 )
 
 $ErrorActionPreference = 'Stop'
@@ -26,13 +27,17 @@ if (!$gcc -or !$objcopy) {
 }
 
 $software = Join-Path $ProjectRoot 'software'
+$sourceFile = Join-Path $software $Source
+if (!(Test-Path $sourceFile)) {
+    throw "Firmware source not found: $sourceFile"
+}
 $elf = Join-Path $software 'firmware.elf'
 $binary = Join-Path $software 'firmware.bin'
 $hex = Join-Path $software 'imem.hex'
 
 & $gcc -march=rv32i -mabi=ilp32 -mno-relax -O2 -ffreestanding -nostdlib -nostartfiles `
     '-Wl,--no-relax' '-T' (Join-Path $software 'link.ld') `
-    (Join-Path $software 'boot.s') (Join-Path $software 'main.c') '-o' $elf
+    (Join-Path $software 'boot.s') $sourceFile '-o' $elf
 if ($LASTEXITCODE -ne 0) { throw 'RISC-V firmware compilation failed.' }
 
 & $objcopy '-O' 'binary' $elf $binary

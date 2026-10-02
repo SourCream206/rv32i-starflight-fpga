@@ -25,7 +25,7 @@ module riscv_soc (
 
     wire cpu_rst = ~rst; 
     wire [31:0] imem_addr, imem_rdata;
-    wire [31:0] dmem_addr, real_dmem_rdata, dmem_wdata;
+    wire [31:0] dmem_addr, real_dmem_rdata, dmem_wdata, npu_rdata;
     wire        cpu_we;
     wire [3:0]  dmem_byte_en;
     wire [31:0] cpu_rdata; 
@@ -71,9 +71,20 @@ module riscv_soc (
     wire led_we = cpu_we & (dmem_addr[31:16] == 16'h0004);
     wire video_we = cpu_we & (dmem_addr[31:16] == 16'h0005);
 
+    npu_peripheral npu (
+        .clk(clk),
+        .rst(cpu_rst),
+        .bus_we(cpu_we),
+        .bus_byte_enable(dmem_byte_en),
+        .bus_addr(dmem_addr),
+        .bus_wdata(dmem_wdata),
+        .bus_rdata(npu_rdata)
+    );
+
     // Read Routing
     assign cpu_rdata = (dmem_addr[31:16] == 16'h0001) ? real_dmem_rdata :
                        (dmem_addr[31:16] == 16'h0002) ? {{16{tilt_x[15]}}, tilt_x} :
+                       (dmem_addr[31:16] == 16'h0006) ? npu_rdata :
                        (dmem_addr == 32'h0000_0004)   ? {23'b0, ~BTN1, SW[8:1]} : 32'd0;
 
     // --------------------------------------------------------

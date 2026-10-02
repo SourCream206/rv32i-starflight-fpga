@@ -72,6 +72,8 @@ set_global_assignment -name EDA_TEST_BENCH_MODULE_NAME tb_cpu -section_id tb_cpu
 set_global_assignment -name EDA_TEST_BENCH_FILE tb/tb_cpu.v -section_id tb_cpu
 set_global_assignment -name VERILOG_FILE rtl/imem.v
 set_global_assignment -name VERILOG_FILE rtl/dmem.v
+set_global_assignment -name SYSTEMVERILOG_FILE rtl/mac_array_4x4.sv
+set_global_assignment -name SYSTEMVERILOG_FILE rtl/npu_peripheral.sv
 set_global_assignment -name VERILOG_FILE rtl/riscv_soc.v
 set_global_assignment -name VERILOG_FILE rtl/vga_timing.v
 set_global_assignment -name VERILOG_FILE rtl/game_video.v
