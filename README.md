@@ -40,6 +40,22 @@ $env:RISCV = 'C:\Users\ayush\AppData\Roaming\xPacks\@xpack-dev-tools\riscv-none-
 
 The script generates `software/firmware.elf` and `software/imem.hex`. The instruction image is versioned because the FPGA ROM consumes it directly.
 
+The instruction ROM is 16 KiB (4,096 words) and data RAM is 8 KiB (2,048
+words). This leaves sufficient instruction-ROM capacity for generated
+read-only Transformer model arrays while preserving data RAM for the runtime
+context, intermediate activations, and stack.
+
+Generate the no-LayerNorm model headers from the sibling NPU repository before
+building Transformer firmware:
+
+```powershell
+Set-Location ..\rv32i-fpga-npu
+python scripts\train_and_export.py --output-dir model_hex
+python scripts\export_c_header.py --model-dir model_hex --output ..\riscPROJET\software\model_weights.h
+Copy-Item model_hex\quantization_config.h ..\riscPROJET\software\
+Set-Location ..\riscPROJET
+```
+
 ## Build and Test
 
 ### CPU and VGA simulation

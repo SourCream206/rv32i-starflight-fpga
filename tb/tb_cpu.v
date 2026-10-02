@@ -11,9 +11,9 @@ module tb_cpu;
     wire [3:0]  dmem_byte_en;
     wire        illegal_instruction;
 
-    // Simulated Memory Arrays (64 words each)
-    reg [31:0] instr_mem [0:63];
-    reg [31:0] data_mem  [0:63];
+    // Simulated 16 KiB instruction ROM and 8 KiB data RAM.
+    reg [31:0] instr_mem [0:4095];
+    reg [31:0] data_mem  [0:2047];
     integer i;
 
     // Instantiate your CPU
@@ -44,8 +44,10 @@ module tb_cpu;
         clk = 0;
         rst = 1;
 
-        for (i = 0; i < 64; i = i + 1) begin
+        for (i = 0; i < 4096; i = i + 1) begin
             instr_mem[i] = 32'h00000013;
+        end
+        for (i = 0; i < 2048; i = i + 1) begin
             data_mem[i] = 32'd0;
         end
 
